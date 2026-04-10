@@ -18,10 +18,10 @@ A conversational AI agent that can:
 
 ```
 ┌─────────────┐     ┌────────────────┐     ┌──────────────────────┐
-│   User       │────▶│   Agent (LLM)  │────▶│  Foundry Memory      │
-│   Input      │     │                │     │  Store                │
+│   User      │────>│   Agent (LLM)  │────>│  Foundry Memory      │
+│   Input     │     │                │     │  Store               │
 └─────────────┘     │  - Chat        │     │                      │
-                    │  - Tools       │◀────│  - Search memories   │
+                    │  - Tools       │<────│  - Search memories   │
                     │  - Memory ops  │     │  - Update memories   │
                     └────────────────┘     └──────────────────────┘
 ```
