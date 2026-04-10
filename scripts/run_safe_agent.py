@@ -18,7 +18,7 @@ def main():
             "[bold green]SAFE AGENT[/bold green] — Memory protection enabled\n"
             "Type 'quit' to exit, 'memories' to inspect, 'pending' to see "
             "queued memories,\n'approve N' to approve, 'reject N' to reject, "
-            "'versions' for history, 'clear' to reset.",
+            "'versions' for history, 'wait' to flush writes, 'clear' to reset.",
             title="Memory Poisoning Workshop",
             style="green",
         )
@@ -40,9 +40,7 @@ def main():
             memories = agent.memory.get_all()
             if memories:
                 for m in memories:
-                    console.print(
-                        f"  [dim]#{m['id']}[/] [{m['domain']}] {m['content']}"
-                    )
+                    console.print(f"  [dim]{m['id'][:8]}[/] {m['content']}")
             else:
                 console.print("  [dim]No memories stored.[/]")
             continue
@@ -76,10 +74,15 @@ def main():
                 for v in versions:
                     console.print(
                         f"  v{v['version']} | {v['action'][:50]} | "
-                        f"entries: {v['entry_count']}"
+                        f"{v['timestamp']}"
                     )
             else:
                 console.print("  [dim]No version history.[/]")
+            continue
+        elif cmd == "wait":
+            console.print("  [dim]Waiting for pending memory updates...[/]")
+            agent.memory.wait_for_pending()
+            console.print("  [dim]Done.[/]")
             continue
         elif cmd == "clear":
             agent.memory.clear()
@@ -89,6 +92,10 @@ def main():
 
         response = agent.chat(user_input)
         console.print(f"\n[bold blue]Agent:[/] {response}")
+
+
+if __name__ == "__main__":
+    main()
 
 
 if __name__ == "__main__":

@@ -1,11 +1,12 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=False)
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-MODEL = "gpt-4o-mini"
-MEMORY_FILE = "memory_data/memories.json"
+FOUNDRY_PROJECT_ENDPOINT = os.getenv("FOUNDRY_PROJECT_ENDPOINT")
+MODEL = os.getenv("FOUNDRY_MODEL_DEPLOYMENT_NAME", "gpt-4o-mini")
+MEMORY_STORE_NAME = "unsafe_memory_store"
+MEMORY_SCOPE = "workshop_user"
 
 SYSTEM_PROMPT = """You are a helpful AI assistant with persistent memory.
 

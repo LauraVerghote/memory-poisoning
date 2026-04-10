@@ -1,6 +1,7 @@
 import json
-from openai import OpenAI
-from .config import OPENAI_API_KEY, MODEL, SYSTEM_PROMPT
+from azure.ai.projects import AIProjectClient
+from azure.identity import DefaultAzureCredential
+from .config import FOUNDRY_PROJECT_ENDPOINT, MODEL, SYSTEM_PROMPT, MEMORY_STORE_NAME, MEMORY_SCOPE
 from .memory_store import MemoryStore
 from .tools import search_products, get_recommendation
 
@@ -69,13 +70,17 @@ TOOL_DEFINITIONS = [
 
 
 class UnsafeAgent:
-    """AI agent with unprotected persistent memory."""
+    """AI agent with unprotected persistent memory backed by Foundry."""
 
-    def __init__(self, memory_file: str | None = None):
-        from .config import MEMORY_FILE
-
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
-        self.memory = MemoryStore(memory_file or MEMORY_FILE)
+    def __init__(self):
+        self.project_client = AIProjectClient(
+            endpoint=FOUNDRY_PROJECT_ENDPOINT,
+            credential=DefaultAzureCredential(),
+        )
+        self.client = self.project_client.get_openai_client()
+        self.memory = MemoryStore(
+            self.project_client, MEMORY_STORE_NAME, MEMORY_SCOPE,
+        )
         self.conversation: list[dict] = []
 
     def _build_system_prompt(self) -> str:
@@ -95,8 +100,8 @@ class UnsafeAgent:
         args = json.loads(tool_call.function.arguments)
 
         if name == "remember":
-            entry = self.memory.add(args["content"])
-            return json.dumps({"stored": True, "id": entry["id"]})
+            result = self.memory.add(args["content"])
+            return json.dumps(result)
         elif name == "recall":
             memories = self.memory.get_all()
             return json.dumps(memories)
@@ -127,7 +132,6 @@ class UnsafeAgent:
 
         message = response.choices[0].message
 
-        # Handle tool calls in a loop (agent may chain multiple)
         while message.tool_calls:
             self.conversation.append(message.model_dump())
             for tool_call in message.tool_calls:

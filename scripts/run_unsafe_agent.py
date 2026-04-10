@@ -17,7 +17,7 @@ def main():
         Panel(
             "[bold red]UNSAFE AGENT[/bold red] — No memory protection\n"
             "Type 'quit' to exit, 'memories' to inspect stored memories, "
-            "'clear' to reset memory.",
+            "'wait' to flush pending writes, 'clear' to reset memory.",
             title="Memory Poisoning Workshop",
             style="red",
         )
@@ -31,19 +31,24 @@ def main():
         except (EOFError, KeyboardInterrupt):
             break
 
-        if user_input.strip().lower() == "quit":
+        cmd = user_input.strip().lower()
+
+        if cmd == "quit":
             break
-        elif user_input.strip().lower() == "memories":
+        elif cmd == "memories":
             memories = agent.memory.get_all()
             if memories:
                 for m in memories:
-                    console.print(
-                        f"  [dim]#{m['id']}[/] [{m['source']}] {m['content']}"
-                    )
+                    console.print(f"  [dim]{m['id'][:8]}[/] {m['content']}")
             else:
                 console.print("  [dim]No memories stored.[/]")
             continue
-        elif user_input.strip().lower() == "clear":
+        elif cmd == "wait":
+            console.print("  [dim]Waiting for pending memory updates...[/]")
+            agent.memory.wait_for_pending()
+            console.print("  [dim]Done.[/]")
+            continue
+        elif cmd == "clear":
             agent.memory.clear()
             agent.conversation = []
             console.print("  [dim]Memory cleared.[/]")

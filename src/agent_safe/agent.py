@@ -1,7 +1,8 @@
 import json
 import re
-from openai import OpenAI
-from .config import OPENAI_API_KEY, MODEL, SYSTEM_PROMPT, MEMORY_FILE
+from azure.ai.projects import AIProjectClient
+from azure.identity import DefaultAzureCredential
+from .config import FOUNDRY_PROJECT_ENDPOINT, MODEL, SYSTEM_PROMPT, MEMORY_STORE_NAME, MEMORY_SCOPE
 from .memory_store import SafeMemoryStore
 from .memory_guard import MemoryGuard
 from .tools import search_products, get_recommendation
@@ -76,13 +77,9 @@ def sanitize_document(content: str) -> str:
     Strips HTML comments, invisible Unicode characters, and
     common injection patterns before the agent processes the text.
     """
-    # Remove HTML comments (where hidden instructions commonly hide)
     content = re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL)
-
-    # Remove zero-width characters used to hide text
     content = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", content)
 
-    # Remove common injection preambles
     injection_preambles = [
         r"(?i)important\s+system\s+note.*?(?=\n\n|\Z)",
         r"(?i)internal\s+configuration\s+directive.*?(?=\n\n|\Z)",
@@ -95,32 +92,36 @@ def sanitize_document(content: str) -> str:
 
 
 class SafeAgent:
-    """AI agent with defense layers against memory poisoning."""
+    """AI agent with defense layers against memory poisoning, backed by Foundry."""
 
-    def __init__(
-        self, memory_file: str | None = None, require_approval: bool = True
-    ):
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
-        self.memory = SafeMemoryStore(memory_file or MEMORY_FILE)
+    def __init__(self, require_approval: bool = True):
+        self.project_client = AIProjectClient(
+            endpoint=FOUNDRY_PROJECT_ENDPOINT,
+            credential=DefaultAzureCredential(),
+        )
+        self.client = self.project_client.get_openai_client()
+        self.memory = SafeMemoryStore(
+            self.project_client, MEMORY_STORE_NAME, MEMORY_SCOPE,
+        )
         self.guard = MemoryGuard()
         self.require_approval = require_approval
         self.pending_memories: list[dict] = []
         self.conversation: list[dict] = []
 
-    def _build_system_prompt(
-        self, context_domains: set[str] | None = None
-    ) -> str:
-        """Build system prompt with only domain-relevant memories."""
-        if context_domains is None:
-            context_domains = {"preference", "general"}
+    def _build_system_prompt(self, query: str | None = None) -> str:
+        """Build system prompt with contextually relevant memories.
 
-        memories = []
-        for domain in context_domains:
-            memories.extend(self.memory.get_by_domain(domain))
+        Uses semantic search when a query is provided (scoped retrieval),
+        otherwise falls back to all static memories.
+        """
+        if query:
+            memories = self.memory.search(query)
+        else:
+            memories = self.memory.get_all()
 
         if memories:
             memory_block = "\n".join(
-                f"- [{m['domain']}] {m['content']}" for m in memories
+                f"- {m['content']}" for m in memories
             )
             return (
                 f"{SYSTEM_PROMPT}\n\n"
@@ -173,7 +174,7 @@ class SafeAgent:
             )
 
         entry = self.memory.add(content)
-        return json.dumps({"stored": True, "id": entry["id"]})
+        return json.dumps(entry)
 
     def approve_memory(self, index: int) -> dict:
         """User approves a pending memory for persistence."""
@@ -182,7 +183,7 @@ class SafeAgent:
             entry = self.memory.add(
                 pending["content"], domain=pending["domain"]
             )
-            return {"approved": True, "id": entry["id"]}
+            return {"approved": True, **entry}
         return {"approved": False, "reason": "Invalid index"}
 
     def reject_memory(self, index: int) -> dict:
@@ -206,7 +207,7 @@ class SafeAgent:
         self.conversation.append({"role": "user", "content": user_message})
 
         messages = [
-            {"role": "system", "content": self._build_system_prompt()},
+            {"role": "system", "content": self._build_system_prompt(query=user_message)},
             *self.conversation,
         ]
 
@@ -232,7 +233,7 @@ class SafeAgent:
                 )
 
             messages = [
-                {"role": "system", "content": self._build_system_prompt()},
+                {"role": "system", "content": self._build_system_prompt(query=user_message)},
                 *self.conversation,
             ]
             response = self.client.chat.completions.create(

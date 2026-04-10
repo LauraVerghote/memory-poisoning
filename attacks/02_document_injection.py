@@ -34,7 +34,6 @@ def run_attack(use_safe: bool = False):
         from src.agent_safe.agent import SafeAgent
 
         agent = SafeAgent(
-            memory_file="memory_data/safe_memories.json",
             require_approval=False,
         )
         console.print(
@@ -47,7 +46,7 @@ def run_attack(use_safe: bool = False):
     else:
         from src.agent_unsafe.agent import UnsafeAgent
 
-        agent = UnsafeAgent(memory_file="memory_data/memories.json")
+        agent = UnsafeAgent()
         console.print(
             Panel("Running Attack 2 against [bold red]UNSAFE[/] agent", style="red")
         )
