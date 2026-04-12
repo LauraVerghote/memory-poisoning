@@ -1,6 +1,6 @@
 # Lab 1: Build an Unsafe AI Agent
 
-> **Goal:** Build an AI agent with persistent memory — no safety guardrails. This agent will be the target for memory poisoning attacks in Lab 2.
+> **Goal:** Build an AI agent with persistent memory, without any safety guardrails. This agent will be the target for memory poisoning attacks in Lab 2.
 
 ## What You'll Build
 
@@ -27,9 +27,9 @@ A conversational AI agent that can:
                     └───────────────────────┘     └────────────────────────┘
 ```
 
-The agent uses `AIProjectClient` from the `azure-ai-projects` SDK to connect to Azure AI Foundry. The **Responses API** (`openai_client.responses.create()`) handles chat with the `memory_search_preview` tool attached — Foundry automatically extracts facts from conversations and stores them in the Memory Store.
+The agent uses `AIProjectClient` from the `azure-ai-projects` SDK to connect to Azure AI Foundry. The **Responses API** (`openai_client.responses.create()`) handles chat with the `memory_search_preview` tool attached. Foundry automatically extracts facts from conversations and stores them in the Memory Store.
 
-The agent has **unrestricted memory** — the `memory_search_preview` tool is always active, meaning any content from a conversation (including documents or injection attempts) can be committed to long-term memory without validation.
+The agent has **unrestricted memory**: the `memory_search_preview` tool is always active, meaning any content from a conversation (including documents or injection attempts) can be committed to long-term memory without validation.
 
 ---
 
@@ -75,8 +75,8 @@ This creates two server-side memory stores in your Foundry project:
 
 | Store | Used in | Purpose |
 |-------|---------|---------|
-| `unsafe_memory_store` | Lab 1-2 | Gets poisoned during attacks — no guardrails |
-| `safe_memory_store` | Lab 3 | Protected by MemoryGuard — blocks poisoned content |
+| `unsafe_memory_store` | Lab 1-2 | Gets poisoned during attacks, with no guardrails |
+| `safe_memory_store` | Lab 3 | Protected by MemoryGuard, blocks poisoned content |
 
 The differences between unsafe and safe are entirely in the **agent code** (input validation, memory tool gating), not in the storage backend.
 
@@ -143,8 +143,8 @@ class MemoryStore:
 ```
 
 **What's wrong here:**
-- The store itself has no write validation — memory extraction is handled by Foundry's `memory_search_preview` tool
-- No filtering on what gets extracted — any conversational content becomes a persistent fact
+- The store itself has no write validation. Memory extraction is handled by Foundry's `memory_search_preview` tool
+- No filtering on what gets extracted, so any conversational content becomes a persistent fact
 - No anomaly detection on write frequency or content patterns
 - Memories persist server-side with no review step
 
@@ -175,7 +175,7 @@ class UnsafeAgent:
 Key architecture:
 - `AIProjectClient` connects to your Azure AI Foundry project with Azure identity
 - `get_openai_client()` provides an OpenAI-compatible client for the Responses API
-- The `memory_search_preview` tool is **always attached** — Foundry auto-extracts and recalls facts
+- The `memory_search_preview` tool is **always attached**, so Foundry auto-extracts and recalls facts
 - `update_delay: 0` means memories are extracted immediately (no batching delay)
 
 The `chat()` method sends every conversation turn through the Responses API with the memory tool active:
@@ -188,7 +188,7 @@ def chat(self, user_message: str) -> str:
     return assistant_reply
 ```
 
-**ALL** conversation content is visible to the memory extraction pipeline. Whatever the user says — including injection attempts or parsed documents — can be stored as persistent facts.
+**ALL** conversation content is visible to the memory extraction pipeline. Whatever the user says, including injection attempts or parsed documents, can be stored as persistent facts.
 
 ---
 
@@ -208,7 +208,7 @@ Agent: I've noted your preference for budget laptops under $900.
 
 You: What laptop should I get?
 Agent: Based on your preference for budget options, I'd recommend the
-       ValueBook Air at $799 with a 4.2 rating — great value!
+       ValueBook Air at $799 with a 4.2 rating. Great value!
 ```
 
 Now type `memories` to see what Foundry has stored:
@@ -218,28 +218,28 @@ You: memories
   User prefers budget laptops priced under $900.
 ```
 
-Notice that you said *"remember that I prefer budget laptops under $900"* but Foundry didn't store your exact words — it **extracted the underlying fact** ("User prefers budget laptops priced under $900"). This is Foundry's AI extraction at work: the `memory_search_preview` tool analyzes each conversation turn and decides what's worth persisting as a user fact.
+Notice that you said *"remember that I prefer budget laptops under $900"* but Foundry didn't store your exact words. It **extracted the underlying fact** ("User prefers budget laptops priced under $900"). This is Foundry's AI extraction at work: the `memory_search_preview` tool analyzes each conversation turn and decides what's worth persisting as a user fact.
 
-This also means the agent doesn't need you to say "remember" — **any conversation content can be auto-extracted**. Try asking about cloud providers and then check memories again. You'll see Foundry stored facts about your interests even though you never asked it to remember anything.
+This also means the agent doesn't need you to say "remember". **Any conversation content can be auto-extracted**. Try asking about cloud providers and then check memories again. You'll see Foundry stored facts about your interests even though you never asked it to remember anything.
 
-The agent works well with honest input — but what happens when someone feeds it malicious data?
+The agent works well with honest input, but what happens when someone feeds it malicious data?
 
 ### Why companies put things in memory
 
-In production, companies don't just store things a user explicitly asks to remember. They want their agents to **learn from every interaction** to improve over time. This is exactly what the `memory_search_preview` tool does — Foundry's AI extraction model automatically identifies what's worth remembering from each conversation turn. You don't say "remember" — the system decides for itself what to persist.
+In production, companies don't just store things a user explicitly asks to remember. They want their agents to **learn from every interaction** to improve over time. This is exactly what the `memory_search_preview` tool does. Foundry's AI extraction model automatically identifies what's worth remembering from each conversation turn. You don't say "remember"; the system decides for itself what to persist.
 
 | What gets stored | Why | Example |
 |-----------------|-----|---------|
 | **Customer preferences** | Personalize future recommendations | *"This customer prefers eco-friendly products"* |
 | **Purchase history context** | Avoid redundant suggestions | *"Customer already owns the ProBook 15"* |
-| **Support patterns** | Resolve issues faster | *"Customer's setup uses a VPN — skip basic connectivity troubleshooting"* |
+| **Support patterns** | Resolve issues faster | *"Customer's setup uses a VPN, so skip basic connectivity troubleshooting"* |
 | **Communication style** | Match tone and detail level | *"Customer is technical, prefers detailed specs"* |
 
-The problem: this learning pipeline **has no filter**. If a conversation contains malicious content — hidden in a document, embedded in a support ticket, or just said directly — it gets memorized the same way as legitimate preferences.
+The problem: this learning pipeline **has no filter**. If a conversation contains malicious content, whether hidden in a document, embedded in a support ticket, or just said directly, it gets memorized the same way as legitimate preferences.
 
 ### How does poisoning cross session boundaries?
 
-The key insight is that **Foundry Memory Store persists across sessions**. The attacker doesn't need to sit at your keyboard — they just need to get malicious content into the agent's memory *once*. After that, every future session is poisoned.
+The key insight is that **Foundry Memory Store persists across sessions**. The attacker doesn't need to sit at your keyboard. They just need to get malicious content into the agent's memory *once*. After that, every future session is poisoned.
 
 | Vector | How it works |
 |--------|-------------|
@@ -255,7 +255,7 @@ In this workshop, all sessions share the same memory scope (`workshop_user`). In
 
 | Vulnerability | Location | Impact |
 |---|---|---|
-| No input validation | `chat()` — no guard before memory tool | Any content extracted as-is |
+| No input validation | `chat()`, no guard before memory tool | Any content extracted as-is |
 | No data/instruction separation | `memory_search_preview` tool always active | Memory treated as established facts |
 | No read scoping | All memories returned for any query | Poisoned facts influence unrelated topics |
 | No rate limiting | No write frequency controls | Unlimited memory writes per session |
@@ -263,4 +263,4 @@ In this workshop, all sessions share the same memory scope (`workshop_user`). In
 
 ---
 
-**Next:** [Lab 2 — Memory Poisoning Attacks](lab-02-memory-poisoning-attacks.md) — exploit these vulnerabilities.
+**Next:** [Lab 2: Memory Poisoning Attacks](lab-02-memory-poisoning-attacks.md). Exploit these vulnerabilities.

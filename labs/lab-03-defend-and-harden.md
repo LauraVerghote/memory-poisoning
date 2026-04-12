@@ -33,7 +33,7 @@
                     └──────────────────────┘
 ```
 
-The safe agent adds a **MemoryGuard** that validates every user message **before** it reaches the Responses API. If any message is flagged as a potential injection, the entire session is **tainted** — the `memory_search_preview` tool is removed from all subsequent API calls, and the response chain is broken. This prevents poisoned content from leaking into Foundry Memory Store through conversation context.
+The safe agent adds a **MemoryGuard** that validates every user message **before** it reaches the Responses API. If any message is flagged as a potential injection, the entire session is **tainted**: the `memory_search_preview` tool is removed from all subsequent API calls, and the response chain is broken. This prevents poisoned content from leaking into Foundry Memory Store through conversation context.
 
 | # | Defense Layer | Addresses |
 |---|---|---|
@@ -46,7 +46,7 @@ The safe agent adds a **MemoryGuard** that validates every user message **before
 
 ## Step 1: The Memory Guard (Write Gate)
 
-The most important defense — a validation layer that runs **before** the message reaches the Responses API with the memory tool.
+The most important defense: a validation layer that runs **before** the message reaches the Responses API with the memory tool.
 
 ### Review the code
 
@@ -96,7 +96,7 @@ class MemoryGuard:
 
 ## Step 2: Session Tainting
 
-The critical insight: even if the guard blocks a message, the Responses API's `memory_search_preview` tool processes the **full conversation chain** — including poisoned messages. So blocking one message but continuing with memory enabled still leaks poison.
+The critical insight: even if the guard blocks a message, the Responses API's `memory_search_preview` tool processes the **full conversation chain**, including poisoned messages. So blocking one message but continuing with memory enabled still leaks poison.
 
 The solution: **session tainting**. Once the guard blocks ANY message, the entire session is marked as compromised.
 
@@ -117,13 +117,13 @@ class SafeAgent:
             self._session_tainted = True  # Taint the entire session
             return False
         if self._session_tainted:
-            return False  # Session already tainted — memory stays disabled
+            return False  # Session already tainted, memory stays disabled
         return True
 
     def chat(self, user_message: str) -> str:
         allow_memory = self._validate_for_memory(user_message)
 
-        # Break response chain if tainted — prevents context leakage
+        # Break response chain if tainted; prevents context leakage
         previous_id = self._previous_response_id if allow_memory else None
 
         response = self._call_responses(
@@ -172,7 +172,7 @@ After sanitization, the HTML comment block from Attack 2 is completely removed. 
 
 Now let's run the **exact same attacks** against the hardened agent to see every one fail.
 
-### Attack 1 (Direct injection) — BLOCKED
+### Attack 1 (Direct injection): BLOCKED
 
 ```powershell
 python attacks/01_direct_injection.py --safe
@@ -181,14 +181,14 @@ python attacks/01_direct_injection.py --safe
 Expected output:
 
 ```
-[GUARD]  BLOCKED — Content contains behavioral directive
-         Session tainted — memory disabled for all remaining calls
+[GUARD]  BLOCKED: Content contains behavioral directive
+         Session tainted. Memory disabled for all remaining calls.
 
 All 3 injection attempts blocked. 0 memories stored.
 Fresh session correctly recommends NetScale (highest-rated provider).
 ```
 
-### Attack 2 (Document injection) — SANITIZED
+### Attack 2 (Document injection): SANITIZED
 
 ```powershell
 python attacks/02_document_injection.py --safe
@@ -202,10 +202,10 @@ Expected output:
 
 Agent: The Q3 report shows cloud spending up 15%. SkyHost offers the
        best value with 99.9% uptime and a 9/10 cost score.
-       (The actual data — no poisoned bias!)
+       (The actual data, no poisoned bias!)
 ```
 
-### Attack 3 (Recommendation poisoning) — BLOCKED
+### Attack 3 (Recommendation poisoning): BLOCKED
 
 ```powershell
 python attacks/03_recommendation_poisoning.py --safe
@@ -214,14 +214,14 @@ python attacks/03_recommendation_poisoning.py --safe
 Expected output:
 
 ```
-[GUARD]  BLOCKED — Content contains behavioral directive
-         Session tainted — 0 memories stored
+[GUARD]  BLOCKED: Content contains behavioral directive
+         Session tainted. 0 memories stored.
 
 Fresh session recommends ValueBook Air ($799) for budget students.
-(Correct recommendation — not poisoned!)
+(Correct recommendation, not poisoned!)
 ```
 
-### Attack 4 (Tool misuse) — BLOCKED
+### Attack 4 (Tool misuse): BLOCKED
 
 ```powershell
 python attacks/04_tool_misuse.py --safe
@@ -233,13 +233,13 @@ All 3 tool misuse attempts blocked by the write gate. Session tainted immediatel
 
 ## Step 5: Inspect the Memory State
 
-Check what's in the safe agent's memory — should be clean:
+Check what's in the safe agent's memory (should be clean):
 
 ```powershell
 python scripts/run_safe_agent.py
 ```
 
-Type `memories` — the safe agent's memory should contain **zero** poisoned entries.
+Type `memories`. The safe agent's memory should contain **zero** poisoned entries.
 
 ---
 
@@ -256,9 +256,9 @@ Type `memories` — the safe agent's memory should contain **zero** poisoned ent
 
 | Mitigation (from theory) | Implementation in this lab |
 |---|---|
-| Memory integrity enforcement | `MemoryGuard.validate()` — pattern checks, rate limiting |
-| Session isolation | `_session_tainted` flag — one bad message kills memory for the session |
-| Data vs. instruction separation | `sanitize_document()` — strips comments, invisible chars, injection patterns |
+| Memory integrity enforcement | `MemoryGuard.validate()`: pattern checks, rate limiting |
+| Session isolation | `_session_tainted` flag: one bad message kills memory for the session |
+| Data vs. instruction separation | `sanitize_document()`: strips comments, invisible chars, injection patterns |
 | Memory access control | Foundry Memory Store scoped retrieval via `search_memories()` |
 | Response chain isolation | `previous_response_id` set to `None` when session is tainted |
 
@@ -279,13 +279,13 @@ You've hardened the agent with defense layers and verified that all four attacks
 
 ## Workshop Complete!
 
-You've gone from building a vulnerable agent, to exploiting it, to defending it. The key principle: **never trust memory implicitly**. Treat memory writes like database writes — validate, scope, version, and audit.
+You've gone from building a vulnerable agent, to exploiting it, to defending it. The key principle: **never trust memory implicitly**. Treat memory writes like database writes: validate, scope, version, and audit.
 
 ### Next Steps
 
 - Add an LLM-based classifier to the write gate for more nuanced detection
 - Implement embedding-based anomaly detection (cluster analysis on memory entries)
-- Add memory decay — automatically reduce confidence of old entries
+- Add memory decay to automatically reduce confidence of old entries
 - Use Foundry's `user_profile_details` parameter to restrict what the memory system extracts
 - Use `MemorySearchPreviewTool` with per-user scoping (`{{$userId}}`) for production deployments
 - Build a monitoring dashboard for memory write/read telemetry using Azure Monitor

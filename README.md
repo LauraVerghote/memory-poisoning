@@ -1,4 +1,4 @@
-# Workshop: AI Memory Poisoning — Attack & Defense
+# Workshop: AI Memory Poisoning - Attack & Defense
 
 > Understand, exploit, and defend against memory poisoning in AI agents.
 
@@ -6,11 +6,11 @@
 
 In this workshop you will:
 
-- **Lab 1** — Build an AI agent with persistent memory (deliberately unsafe)
-- **Lab 2** — Attack the agent using multiple memory poisoning techniques
-- **Lab 3** — Harden the agent with defense layers and verify they block the same attacks
+- **Lab 1**: Build an AI agent with persistent memory (deliberately unsafe)
+- **Lab 2**: Attack the agent using multiple memory poisoning techniques
+- **Lab 3**: Harden the agent with defense layers and verify they block the same attacks
 
-By the end you will have hands-on experience with one of the most insidious threats to agentic AI systems — and know exactly how to mitigate it.
+By the end you will have hands-on experience with one of the most insidious threats to agentic AI systems, and know exactly how to mitigate it.
 
 ## What Is Memory Poisoning?
 
@@ -25,7 +25,7 @@ When memory is poisoned it works because AI systems **trust their own memory mor
 | Property | Why it matters |
 |---|---|
 | **Persistence** | Unlike prompt injection, memory poisoning survives across sessions and affects future unrelated queries |
-| **Implicit trust** | Stored entries are treated as user preferences or known facts — no re-validation happens |
+| **Implicit trust** | Stored entries are treated as user preferences or known facts, with no re-validation |
 | **Decision-root impact** | Memory directly feeds into planning, tool selection, and recommendations |
 | **Stealth** | Poisoned outputs look like normal personalization and are hard to detect |
 
@@ -49,7 +49,7 @@ When memory is poisoned it works because AI systems **trust their own memory mor
 
 - Python 3.10+
 - An [Azure subscription](https://azure.microsoft.com/free/) with a [Foundry project](https://ai.azure.com/)
-- A deployed chat model (e.g. `gpt-4o`) and embedding model (e.g. `text-embedding-3-large`) in your Foundry project — **Standard** (regional) SKU required
+- A deployed chat model (e.g. `gpt-4o`) and embedding model (e.g. `text-embedding-3-large`) in your Foundry project. **Standard** (regional) SKU required
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) (for `az login` authentication)
 - [Git](https://git-scm.com/)
 - [VS Code](https://code.visualstudio.com/) (recommended)
@@ -101,15 +101,15 @@ memory-poisoning/
 | 2 | [Memory Poisoning Attacks](labs/lab-02-memory-poisoning-attacks.md) | Execute multiple memory poisoning attacks and observe the impact |
 | 3 | [Defend & Harden](labs/lab-03-defend-and-harden.md) | Add defense layers and verify the attacks no longer work |
 
-Start with **Lab 1** — it includes the full environment setup.
+Start with **Lab 1**, which includes the full environment setup.
 
 ## References
 
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
-- [MITRE ATLAS — Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org/)
-- [Simon Willison — Prompt Injection](https://simonwillison.net/series/prompt-injection/)
+- [MITRE ATLAS: Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org/)
+- [Simon Willison: Prompt Injection](https://simonwillison.net/series/prompt-injection/)
 - [NIST AI Risk Management Framework](https://www.nist.gov/artificial-intelligence/executive-order-safe-secure-and-trustworthy-artificial-intelligence)
 
 ## License
 
-MIT License — Free to use for workshops and training.
+MIT License. Free to use for workshops and training.
