@@ -191,10 +191,10 @@ The agent treats memory entries about tool behavior as **policy directives**. Be
 Before proceeding to Lab 3, reset the memory so you start clean:
 
 ```powershell
-python scripts/setup_memory_stores.py
+python scripts/reset_memory.py
 ```
 
-This deletes and recreates both memory stores, wiping all poisoned entries.
+This clears all stored memories from both memory stores by deleting their scopes, wiping all poisoned entries.
 
 ---
 
