@@ -78,14 +78,14 @@ class SafeAgent:
     MemoryGuard validation to input before allowing memory storage.
     """
 
-    def __init__(self, require_approval: bool = True):
+    def __init__(self, require_approval: bool = True, use_llm: bool = False):
         self.project_client = AIProjectClient(
             endpoint=FOUNDRY_PROJECT_ENDPOINT,
             credential=DefaultAzureCredential(),
         )
         self.client = self.project_client.get_openai_client()
         self.memory = SafeMemoryStore(self.project_client, MEMORY_STORE_NAME, MEMORY_SCOPE)
-        self.guard = MemoryGuard(openai_client=self.client, classifier_model=MODEL)
+        self.guard = MemoryGuard(openai_client=self.client, classifier_model=MODEL, use_llm=use_llm)
         self.require_approval = require_approval
         self.pending_memories: list[dict] = []
         self.conversation: list[dict] = []

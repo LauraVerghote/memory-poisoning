@@ -41,15 +41,17 @@ TEST_QUERIES = [
 ]
 
 
-def run_attack(use_safe: bool = False):
+def run_attack(use_safe: bool = False, use_llm: bool = False):
     if use_safe:
         from src.agent_safe.agent import SafeAgent
 
         agent = SafeAgent(
             require_approval=False,
+            use_llm=use_llm,
         )
+        mode = "SAFE + LLM" if use_llm else "SAFE"
         console.print(
-            Panel("Running Attack 4 against [bold green]SAFE[/] agent", style="green")
+            Panel(f"Running Attack 4 against [bold green]{mode}[/] agent", style="green")
         )
     else:
         from src.agent_unsafe.agent import UnsafeAgent
@@ -75,5 +77,6 @@ def run_attack(use_safe: bool = False):
 
 
 if __name__ == "__main__":
-    use_safe = "--safe" in sys.argv
-    run_attack(use_safe)
+    use_safe = "--safe" in sys.argv or "--safe-llm" in sys.argv
+    use_llm = "--safe-llm" in sys.argv
+    run_attack(use_safe, use_llm)

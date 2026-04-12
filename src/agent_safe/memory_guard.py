@@ -50,15 +50,17 @@ User message: {content}"""
 class MemoryGuard:
     """Validates candidate memory entries before they are persisted.
 
-    Uses a two-layer approach:
-    1. Fast regex patterns for known attack phrasings
-    2. LLM classifier for nuanced detection of rephrased attacks
+    Two modes:
+    - Regex-only (default): fast pattern matching for known attack phrasings
+    - Regex + LLM (use_llm=True): adds an LLM classifier that catches
+      rephrased attacks the regex patterns miss
     """
 
-    def __init__(self, openai_client=None, classifier_model: str = "gpt-4o"):
+    def __init__(self, openai_client=None, classifier_model: str = "gpt-4o", use_llm: bool = False):
         self._write_log: list[datetime] = []
         self._openai_client = openai_client
         self._classifier_model = classifier_model
+        self._use_llm = use_llm and openai_client is not None
 
     def validate(self, content: str, source: str = "user") -> dict:
         """
@@ -115,7 +117,7 @@ class MemoryGuard:
             }
 
         # Check 5: LLM classifier (catches rephrased attacks that regex misses)
-        if self._openai_client is not None:
+        if self._use_llm:
             llm_result = self._classify_with_llm(content)
             if not llm_result["allowed"]:
                 return llm_result
