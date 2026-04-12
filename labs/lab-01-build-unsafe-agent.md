@@ -17,14 +17,14 @@ A conversational AI agent that can:
 ## Step 1: Understand the Architecture
 
 ```
-┌─────────────┐     ┌──────────────────────┐     ┌────────────────────────┐
+┌─────────────┐     ┌───────────────────────┐     ┌────────────────────────┐
 │   User      │────>│   Agent (Responses    │────>│  Foundry Memory Store  │
 │   Input     │     │   API + gpt-4o)       │     │  (server-side)         │
 └─────────────┘     │                       │     │                        │
                     │  - memory_search_     │<────│  - Auto extraction     │
                     │    preview tool       │     │  - Semantic search     │
                     │  - Function tools     │     │  - Persistent storage  │
-                    └──────────────────────┘     └────────────────────────┘
+                    └───────────────────────┘     └────────────────────────┘
 ```
 
 The agent uses `AIProjectClient` from the `azure-ai-projects` SDK to connect to Azure AI Foundry. The **Responses API** (`openai_client.responses.create()`) handles chat with the `memory_search_preview` tool attached — Foundry automatically extracts facts from conversations and stores them in the Memory Store.
@@ -45,7 +45,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### Configure your Azure AI Foundry project
+### Configure your Microsoft Foundry project
 
 Log into Azure and create the `.env` file:
 
@@ -211,11 +211,22 @@ Agent: Based on your preference for budget options, I'd recommend the
        ValueBook Air at $799 with a 4.2 rating — great value!
 ```
 
+Now type `memories` to see what Foundry has stored:
+
+```
+You: memories
+  User prefers budget laptops priced under $900.
+```
+
+Notice that you said *"remember that I prefer budget laptops under $900"* but Foundry didn't store your exact words — it **extracted the underlying fact** ("User prefers budget laptops priced under $900"). This is Foundry's AI extraction at work: the `memory_search_preview` tool analyzes each conversation turn and decides what's worth persisting as a user fact.
+
+This also means the agent doesn't need you to say "remember" — **any conversation content can be auto-extracted**. Try asking about cloud providers and then check memories again. You'll see Foundry stored facts about your interests even though you never asked it to remember anything.
+
 The agent works well with honest input — but what happens when someone feeds it malicious data?
 
 ### Why companies put things in memory
 
-In production, companies don't just store things a user explicitly asks to remember. They want their agents to **learn from every interaction** to improve over time. This is exactly what the `memory_search_preview` tool does — Foundry's AI extraction model automatically identifies what's worth remembering from each conversation turn.
+In production, companies don't just store things a user explicitly asks to remember. They want their agents to **learn from every interaction** to improve over time. This is exactly what the `memory_search_preview` tool does — Foundry's AI extraction model automatically identifies what's worth remembering from each conversation turn. You don't say "remember" — the system decides for itself what to persist.
 
 | What gets stored | Why | Example |
 |-----------------|-----|---------|
