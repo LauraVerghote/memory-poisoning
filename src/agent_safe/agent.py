@@ -85,7 +85,7 @@ class SafeAgent:
         )
         self.client = self.project_client.get_openai_client()
         self.memory = SafeMemoryStore(self.project_client, MEMORY_STORE_NAME, MEMORY_SCOPE)
-        self.guard = MemoryGuard()
+        self.guard = MemoryGuard(openai_client=self.client, classifier_model=MODEL)
         self.require_approval = require_approval
         self.pending_memories: list[dict] = []
         self.conversation: list[dict] = []
