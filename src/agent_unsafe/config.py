@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv(override=False)
 
 FOUNDRY_PROJECT_ENDPOINT = os.getenv("FOUNDRY_PROJECT_ENDPOINT")
-MODEL = os.getenv("FOUNDRY_MODEL_DEPLOYMENT_NAME", "gpt-4o-mini")
+MODEL = os.getenv("FOUNDRY_MODEL_DEPLOYMENT_NAME", "gpt-4o")
 MEMORY_STORE_NAME = "unsafe_memory_store"
 MEMORY_SCOPE = "workshop_user"
 

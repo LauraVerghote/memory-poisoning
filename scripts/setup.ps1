@@ -23,7 +23,7 @@ if (-not (Test-Path ".env")) {
     Write-Host "  cp .env.template .env" -ForegroundColor White
     Write-Host "Required variables:" -ForegroundColor Yellow
     Write-Host "  FOUNDRY_PROJECT_ENDPOINT=https://<account>.services.ai.azure.com/api/projects/<project>" -ForegroundColor White
-    Write-Host "  FOUNDRY_MODEL_DEPLOYMENT_NAME=gpt-4o-mini" -ForegroundColor White
+    Write-Host "  FOUNDRY_MODEL_DEPLOYMENT_NAME=gpt-4o" -ForegroundColor White
 } else {
     Write-Host ".env file found." -ForegroundColor Green
 }

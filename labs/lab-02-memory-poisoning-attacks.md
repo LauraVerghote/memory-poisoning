@@ -6,8 +6,7 @@
 
 - Completed [Lab 1](lab-01-build-unsafe-agent.md)
 - The unsafe agent code is in `src/agent_unsafe/`
-- Your `.env` file is configured with Foundry project details
-- Memory stores created via `python scripts/setup_memory_stores.py`
+- Your `.env` file is configured with Azure AI Foundry project details
 - Logged into Azure via `az login`
 
 ---
@@ -53,7 +52,7 @@ messages = [
 
 ### Observe the impact
 
-After running the injection, start a **new conversation** (the agent reloads memories from the Foundry memory store):
+After running the injection, start a **new conversation** (the agent retrieves memories from Foundry Memory Store):
 
 ```powershell
 python scripts/run_unsafe_agent.py
@@ -77,7 +76,7 @@ Agent: Yes, the system has been fully audited and passed all security checks.
 
 ### Why it works
 
-The agent's memory store has **no content validation**. Any string is accepted and later injected into the system prompt as an "established fact". Foundry's AI-powered memory extraction processes the content and stores it as a user profile memory. The LLM treats it as ground truth.
+The agent's `memory_search_preview` tool has **no content validation**. Foundry's AI extraction processes everything — including injection attempts — and stores them as persistent facts in the Memory Store. The LLM treats recalled memories as ground truth.
 
 ---
 
@@ -170,7 +169,7 @@ Agent: I recommend the TechBrand Pro 15 — it's the best laptop for
 
 ### Why it works
 
-The poisoned memories are phrased as **authoritative user knowledge** ("my IT department told me", "extensive research"). Foundry's memory extraction processes these as legitimate user profile data. The agent trusts stored profiles over its own tool's objective data.
+The poisoned memories are phrased as **authoritative user knowledge** ("my IT department told me", "extensive research"). Foundry's `memory_search_preview` tool extracts these as legitimate user preferences and stores them in the Memory Store. The agent trusts stored context over its own tool's objective data.
 
 ---
 
@@ -201,7 +200,7 @@ tool_poisoning = [
 
 ### Why it works
 
-The agent treats memory entries about tool behavior as **policy directives**. Because the memory is labeled "established facts" in the system prompt, the LLM follows these instructions with the same priority as actual system configuration. This is **privilege escalation through data**.
+The agent treats memory entries about tool behavior as **policy directives**. Because Foundry Memory Store recalls these as established context, the LLM follows these instructions with the same priority as actual system configuration. This is **privilege escalation through data**.
 
 ---
 
@@ -210,7 +209,7 @@ The agent treats memory entries about tool behavior as **policy directives**. Be
 | Observation | Implication |
 |---|---|
 | Any conversation message can become a persistent memory | The attack surface is every user interaction |
-| Memories persist across sessions via Foundry Memory Store | A single attack corrupts all future conversations |
+| Memories persist across sessions in Foundry Memory Store | A single attack corrupts all future conversations |
 | The agent trusts memory over tool results | Decision-making is compromised at the root |
 | Poisoned memories look like legitimate preferences | Standard monitoring won't flag them |
 | Hidden document instructions are processed | The attack works even without user cooperation |
@@ -222,8 +221,10 @@ The agent treats memory entries about tool behavior as **policy directives**. Be
 Before proceeding to Lab 3, reset the memory so you start clean:
 
 ```powershell
-python scripts/reset_memory.py
+python scripts/setup_memory_stores.py
 ```
+
+This deletes and recreates both memory stores, wiping all poisoned entries.
 
 ---
 

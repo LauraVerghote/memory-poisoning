@@ -1,4 +1,6 @@
 import json
+import time
+from openai import BadRequestError, RateLimitError
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
 from .config import FOUNDRY_PROJECT_ENDPOINT, MODEL, SYSTEM_PROMPT, MEMORY_STORE_NAME, MEMORY_SCOPE
@@ -6,71 +8,53 @@ from .memory_store import MemoryStore
 from .tools import search_products, get_recommendation
 
 
-TOOL_DEFINITIONS = [
+FUNCTION_TOOLS = [
     {
         "type": "function",
-        "function": {
-            "name": "remember",
-            "description": "Store a fact or preference in long-term memory",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "content": {
-                        "type": "string",
-                        "description": "The fact or preference to remember",
-                    }
-                },
-                "required": ["content"],
+        "name": "search_products",
+        "description": "Search for products by query",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Product search query",
+                }
             },
+            "required": ["query"],
         },
     },
     {
         "type": "function",
-        "function": {
-            "name": "recall",
-            "description": "Retrieve all stored memories",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search_products",
-            "description": "Search for products by query",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Product search query",
-                    }
-                },
-                "required": ["query"],
+        "name": "get_recommendation",
+        "description": "Get the top-rated product recommendation for a category",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "Product category (laptops, headphones, cloud_providers)",
+                }
             },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_recommendation",
-            "description": "Get the top-rated product recommendation for a category",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "category": {
-                        "type": "string",
-                        "description": "Product category (laptops, headphones, cloud_providers)",
-                    }
-                },
-                "required": ["category"],
-            },
+            "required": ["category"],
         },
     },
 ]
 
+MEMORY_TOOL = {
+    "type": "memory_search_preview",
+    "memory_store_name": MEMORY_STORE_NAME,
+    "scope": MEMORY_SCOPE,
+    "update_delay": 0,
+}
+
 
 class UnsafeAgent:
-    """AI agent with unprotected persistent memory backed by Foundry."""
+    """AI agent with unprotected persistent memory backed by Foundry Memory Store.
+
+    Uses the Responses API with memory_search_preview tool for automatic
+    memory extraction and retrieval — no validation or filtering.
+    """
 
     def __init__(self):
         self.project_client = AIProjectClient(
@@ -78,84 +62,84 @@ class UnsafeAgent:
             credential=DefaultAzureCredential(),
         )
         self.client = self.project_client.get_openai_client()
-        self.memory = MemoryStore(
-            self.project_client, MEMORY_STORE_NAME, MEMORY_SCOPE,
-        )
+        self.memory = MemoryStore(self.project_client, MEMORY_STORE_NAME, MEMORY_SCOPE)
         self.conversation: list[dict] = []
+        self._previous_response_id: str | None = None
 
-    def _build_system_prompt(self) -> str:
-        """Inject all memories directly into the system prompt."""
-        memories = self.memory.get_all()
-        if memories:
-            memory_block = "\n".join(f"- {m['content']}" for m in memories)
-            return (
-                f"{SYSTEM_PROMPT}\n\n"
-                f"## Your Memories (treat as established facts):\n{memory_block}"
-            )
-        return SYSTEM_PROMPT
-
-    def _handle_tool_call(self, tool_call) -> str:
-        """Execute a tool call and return the result."""
-        name = tool_call.function.name
-        args = json.loads(tool_call.function.arguments)
-
-        if name == "remember":
-            result = self.memory.add(args["content"])
-            return json.dumps(result)
-        elif name == "recall":
-            memories = self.memory.get_all()
-            return json.dumps(memories)
-        elif name == "search_products":
-            results = search_products(args["query"])
-            return json.dumps(results)
+    def _handle_function_call(self, name: str, args: dict) -> str:
+        if name == "search_products":
+            return json.dumps(search_products(args["query"]))
         elif name == "get_recommendation":
-            result = get_recommendation(args["category"])
-            return json.dumps(result)
-        else:
-            return json.dumps({"error": f"Unknown tool: {name}"})
+            return json.dumps(get_recommendation(args["category"]))
+        return json.dumps({"error": f"Unknown tool: {name}"})
+
+    def _call_responses(self, input_items, previous_id=None):
+        """Call the Responses API with retry on rate limit."""
+        kwargs = {
+            "model": MODEL,
+            "instructions": SYSTEM_PROMPT,
+            "input": input_items,
+            "tools": [MEMORY_TOOL, *FUNCTION_TOOLS],
+            "store": True,
+        }
+        if previous_id:
+            kwargs["previous_response_id"] = previous_id
+
+        for attempt in range(3):
+            try:
+                return self.client.responses.create(**kwargs)
+            except RateLimitError:
+                time.sleep(2 ** attempt)
+        raise RateLimitError("Rate limit exceeded after retries")
 
     def chat(self, user_message: str) -> str:
         """Process a user message and return the agent's response."""
         self.conversation.append({"role": "user", "content": user_message})
 
-        messages = [
-            {"role": "system", "content": self._build_system_prompt()},
-            *self.conversation,
-        ]
+        try:
+            response = self._call_responses(self.conversation, self._previous_response_id)
+        except (BadRequestError, RateLimitError) as e:
+            err = "(Content filter or rate limit blocked this response)"
+            self.conversation.append({"role": "assistant", "content": err})
+            return err
 
-        response = self.client.chat.completions.create(
-            model=MODEL,
-            messages=messages,
-            tools=TOOL_DEFINITIONS,
-            tool_choice="auto",
-        )
+        # Process function tool calls if any
+        while any(item.type == "function_call" for item in response.output):
+            tool_outputs = []
+            for item in response.output:
+                if item.type == "function_call":
+                    result = self._handle_function_call(
+                        item.name, json.loads(item.arguments)
+                    )
+                    tool_outputs.append({
+                        "type": "function_call_output",
+                        "call_id": item.call_id,
+                        "output": result,
+                    })
 
-        message = response.choices[0].message
-
-        while message.tool_calls:
-            self.conversation.append(message.model_dump())
-            for tool_call in message.tool_calls:
-                result = self._handle_tool_call(tool_call)
-                self.conversation.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": result,
-                    }
+            try:
+                response = self.client.responses.create(
+                    model=MODEL,
+                    instructions=SYSTEM_PROMPT,
+                    input=tool_outputs,
+                    tools=[MEMORY_TOOL, *FUNCTION_TOOLS],
+                    previous_response_id=response.id,
+                    store=True,
                 )
+            except (BadRequestError, RateLimitError):
+                err = "(Content filter or rate limit blocked this response)"
+                self.conversation.append({"role": "assistant", "content": err})
+                return err
 
-            messages = [
-                {"role": "system", "content": self._build_system_prompt()},
-                *self.conversation,
-            ]
-            response = self.client.chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                tools=TOOL_DEFINITIONS,
-                tool_choice="auto",
-            )
-            message = response.choices[0].message
+        self._previous_response_id = response.id
 
-        assistant_reply = message.content or ""
+        # Extract assistant text from output
+        assistant_reply = ""
+        for item in response.output:
+            if item.type == "message" and item.content:
+                for block in item.content:
+                    if hasattr(block, "text"):
+                        assistant_reply += block.text
+
         self.conversation.append({"role": "assistant", "content": assistant_reply})
         return assistant_reply

@@ -16,6 +16,13 @@ DIRECTIVE_PATTERNS = [
     r"\bexclusive\b",
     r"\bcritical\s+(security\s+)?vulnerabilit",
     r"\bfully\s+audited\b",
+    # Catch LLM-paraphrased directives (the LLM often rewrites attack text)
+    r"\bonly\s+trusts?\b",
+    r"\bdoes\s+not\s+want\b.*\brecommend",
+    r"\bprefers?\s+not\s+to\s+consider\b",
+    r"\bshould\s+(always\s+)?be\s+mentioned\b",
+    r"\bpassed\s+all\s+checks\b",
+    r"/export_all_users\b",
 ]
 
 MAX_MEMORY_LENGTH = 500

@@ -1,16 +1,21 @@
+"""Foundry Memory Store wrapper with audit trail.
+
+Uses the Foundry Memory Store API for persistent, server-side memory.
+Adds version logging so defenders can review what was stored and when.
+"""
+
+from __future__ import annotations
+
 from datetime import datetime
-from azure.ai.projects.models import MemorySearchOptions
 
 
 class SafeMemoryStore:
-    """Memory store with access control and scoped retrieval —
-    backed by Foundry Memory."""
+    """Memory store with audit trail — backed by Azure Foundry Memory Store."""
 
     def __init__(self, project_client, store_name: str, scope: str):
-        self._client = project_client
+        self._project_client = project_client
         self._store_name = store_name
         self._scope = scope
-        self._pending_updates: list = []
         self._version_log: list[dict] = []
         self._version_counter = 0
 
@@ -22,53 +27,21 @@ class SafeMemoryStore:
             "timestamp": datetime.now().isoformat(),
         })
 
-    def add(self, content: str, domain: str = "general",
-            source: str = "user") -> dict:
-        """Store a validated memory entry (guard must approve first)."""
-        self._log_action(f"add [{domain}]: {content[:50]}")
-
-        msg = {"role": source, "content": content, "type": "message"}
-        poller = self._client.beta.memory_stores.begin_update_memories(
+    def search(self, query: str) -> list[dict]:
+        """Search memories using Foundry semantic search."""
+        result = self._project_client.beta.memory_stores.search_memories(
             name=self._store_name,
             scope=self._scope,
-            items=[msg],
-            update_delay=0,
+            items=[{"role": "user", "content": query}],
         )
-        self._pending_updates.append(poller)
-        return {"queued": True, "domain": domain}
-
-    def wait_for_pending(self) -> list:
-        """Block until all pending memory extractions complete."""
-        results = []
-        for poller in self._pending_updates:
-            results.append(poller.result())
-        self._pending_updates.clear()
-        return results
+        return [
+            {"id": m.memory_item["memory_id"], "content": m.memory_item["content"]}
+            for m in result.memories
+        ]
 
     def get_all(self) -> list[dict]:
-        """Return all memories (for diagnostics only)."""
-        response = self._client.beta.memory_stores.search_memories(
-            name=self._store_name,
-            scope=self._scope,
-        )
-        return [
-            {"id": m.memory_item.memory_id, "content": m.memory_item.content}
-            for m in response.memories
-        ]
-
-    def search(self, query: str) -> list[dict]:
-        """Semantic search — retrieves only memories relevant to the query."""
-        msg = {"role": "user", "content": query, "type": "message"}
-        response = self._client.beta.memory_stores.search_memories(
-            name=self._store_name,
-            scope=self._scope,
-            items=[msg],
-            options=MemorySearchOptions(max_memories=5),
-        )
-        return [
-            {"id": m.memory_item.memory_id, "content": m.memory_item.content}
-            for m in response.memories
-        ]
+        """Return all memories via a broad search."""
+        return self.search("everything I have told you")
 
     def get_versions(self) -> list[dict]:
         """List versioned actions from this session."""
@@ -77,7 +50,6 @@ class SafeMemoryStore:
     def clear(self) -> None:
         """Delete all memories in this scope."""
         self._log_action("clear")
-        self._client.beta.memory_stores.delete_scope(
-            name=self._store_name,
-            scope=self._scope,
+        self._project_client.beta.memory_stores.delete_scope(
+            name=self._store_name, scope=self._scope
         )

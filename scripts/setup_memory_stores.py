@@ -21,8 +21,8 @@ project_client = AIProjectClient(
     credential=DefaultAzureCredential(),
 )
 
-CHAT_MODEL = os.getenv("MEMORY_STORE_CHAT_MODEL_DEPLOYMENT_NAME", "gpt-4o-mini")
-EMBEDDING_MODEL = os.getenv("MEMORY_STORE_EMBEDDING_MODEL_DEPLOYMENT_NAME", "text-embedding-3-small")
+CHAT_MODEL = os.getenv("MEMORY_STORE_CHAT_MODEL_DEPLOYMENT_NAME", "gpt-4o")
+EMBEDDING_MODEL = os.getenv("MEMORY_STORE_EMBEDDING_MODEL_DEPLOYMENT_NAME", "text-embedding-3-large")
 
 STORES = [
     {
