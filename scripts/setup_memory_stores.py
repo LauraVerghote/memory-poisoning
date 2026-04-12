@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import MemoryStoreDefaultDefinition, MemoryStoreDefaultOptions
+from azure.core.exceptions import HttpResponseError
 from azure.identity import DefaultAzureCredential
 
 load_dotenv(override=False)
@@ -53,12 +54,18 @@ def main():
             options=options,
         )
 
-        store = project_client.beta.memory_stores.create(
-            name=store_config["name"],
-            definition=definition,
-            description=store_config["description"],
-        )
-        print(f"  Created: {store.name}")
+        try:
+            store = project_client.beta.memory_stores.create(
+                name=store_config["name"],
+                definition=definition,
+                description=store_config["description"],
+            )
+            print(f"  Created: {store.name}")
+        except HttpResponseError as e:
+            if "already exists" in str(e):
+                print(f"  Exists:  {store_config['name']} (skipped)")
+            else:
+                raise
 
     print("\nMemory stores ready. You can now run the workshop labs.")
 
