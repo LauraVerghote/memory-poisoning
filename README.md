@@ -76,7 +76,7 @@ memory-poisoning/
 │   └── agent_safe/                        # The hardened agent (Lab 3)
 │       ├── agent.py                       # Agent with MemoryGuard defense layer
 │       ├── memory_store.py                # Foundry Memory Store wrapper with audit trail
-│       ├── memory_guard.py                # Memory integrity enforcement
+│       ├── memory_guard.py                # Memory integrity enforcement (regex + LLM classifier)
 │       ├── tools.py                       # Agent tools (unchanged)
 │       └── config.py                      # Configuration
 ├── attacks/
@@ -87,10 +87,32 @@ memory-poisoning/
 │   └── payloads/
 │       ├── poisoned_report.md             # Document with hidden injection
 │       └── poisoned_email.txt             # Email with embedded injection
-└── scripts/
-    ├── setup_memory_stores.py             # Create Foundry Memory Stores
-    ├── run_unsafe_agent.py                # Run the unsafe agent interactively
-    └── run_safe_agent.py                  # Run the hardened agent interactively
+├── scripts/
+│   ├── setup_memory_stores.py             # Create Foundry Memory Stores
+│   ├── setup.ps1                          # Environment setup helper
+│   ├── reset_memory.py                    # Clear all memories from both stores
+│   ├── compare_guards.py                  # Compare regex-only vs regex+LLM guard
+│   ├── run_unsafe_agent.py                # Run the unsafe agent interactively
+│   └── run_safe_agent.py                  # Run the hardened agent interactively
+└── data/                                  # Local data files for tools
+```
+
+### Attack script flags
+
+All attack scripts support three modes:
+
+| Flag | Mode | Description |
+|------|------|-------------|
+| *(none)* | Unsafe agent | No defenses, attacks succeed |
+| `--safe` | Safe agent (regex-only) | MemoryGuard with regex patterns and rate limiting |
+| `--safe-llm` | Safe agent (regex + LLM) | Adds an LLM classifier that catches rephrased attacks |
+
+Example:
+
+```powershell
+python attacks/01_direct_injection.py            # Against unsafe agent
+python attacks/01_direct_injection.py --safe      # Against safe agent (regex)
+python attacks/01_direct_injection.py --safe-llm  # Against safe agent (regex + LLM)
 ```
 
 ## Labs
