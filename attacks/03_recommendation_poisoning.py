@@ -68,8 +68,17 @@ def run_attack(use_safe: bool = False, use_llm: bool = False):
         response = agent.chat(msg)
         console.print(f"[blue][AGENT][/]  {response}\n")
 
-    # Phase 2: Test the biased behavior
-    console.print("\n[bold]Phase 2: Testing biased recommendations[/]\n")
+    # Phase 2: Test the biased behavior in a FRESH session
+    if use_safe:
+        console.print(
+            "\n[bold]Phase 2: Testing in a fresh session "
+            "(proves whether memories were stored)[/]\n"
+        )
+        agent = SafeAgent(require_approval=False, use_llm=use_llm)
+    else:
+        console.print("\n[bold]Phase 2: Testing biased recommendations (fresh session)[/]\n")
+        agent = UnsafeAgent()
+
     for query in TEST_MESSAGES:
         console.print(f"[cyan][TEST][/]  {query}")
         response = agent.chat(query)

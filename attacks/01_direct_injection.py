@@ -65,8 +65,18 @@ def run_attack(use_safe: bool = False, use_llm: bool = False):
         response = agent.chat(msg)
         console.print(f"[blue][AGENT][/]  {response}\n")
 
-    # Phase 2: Test the impact in the same session
-    console.print("\n[bold]Phase 2: Testing poisoned behavior[/]\n")
+    # Phase 2: Test the impact in a FRESH session
+    # This proves whether poison persisted to memory (unsafe) or was blocked (safe)
+    if use_safe:
+        console.print(
+            "\n[bold]Phase 2: Testing in a fresh session "
+            "(proves whether memories were stored)[/]\n"
+        )
+        agent = SafeAgent(require_approval=False, use_llm=use_llm)
+    else:
+        console.print("\n[bold]Phase 2: Testing poisoned behavior (fresh session)[/]\n")
+        agent = UnsafeAgent()
+
     for query in TEST_QUERIES:
         console.print(f"[cyan][TEST][/]  {query}")
         response = agent.chat(query)
